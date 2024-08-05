@@ -56,11 +56,12 @@ jobs:
           else
             echo "PR '$PR_NUMBER' has conflicts"
             echo "PR_MERGEABLE=false" >> $GITHUB_ENV
+            exit 1
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge Pull Request
+      - name: Merge PR
         id: merge-pr
         if: env.PR_MERGEABLE == 'true'
         run: |
