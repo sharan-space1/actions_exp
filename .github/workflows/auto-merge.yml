@@ -50,7 +50,7 @@ jobs:
           PR_NUMBER=${{ env.PR_NUMBER }}
           PR_MERGEABLE_STATUS=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
           
-          if [[ "$MERGEABLE_STATUS" == "MERGEABLE" ]]; then
+          if [[ "$PR_MERGEABLE_STATUS" == "MERGEABLE" ]]; then
             echo "PR '$PR_NUMBER' is mergeable"
             echo "PR_MERGEABLE=true" >> $GITHUB_ENV
           else
