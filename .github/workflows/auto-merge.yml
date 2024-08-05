@@ -36,7 +36,7 @@ jobs:
           echo "$PR_OUTPUT"
           
           # Extract PR number from the output
-          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '#\K\d+')
+          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '\d+$')
           
           # Print the PR number for debugging
           echo "PR_NUMBER: $PR_NUMBER"
