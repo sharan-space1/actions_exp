@@ -20,9 +20,16 @@ on:
         required: true
         type: string
       hdi_name:
-        description: 'HDI instance name'
+        description: 'HDI Instance name'
         required: true
         type: string
+    # secrets:
+    #   cf_username:
+    #     description: 'Cloud Foundry Username'
+    #     required: true
+    #   cf_password:
+    #     description: 'Cloud Foundry PAssword'
+    #     required: true
 
 jobs:
   deploy:
@@ -38,7 +45,7 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        
+
     - name: Install CF CLI
       run: |
         wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
@@ -51,9 +58,14 @@ jobs:
 
     - name: Log in to Cloud Foundry
       run: |
+        echo $CF_USERNAME
+        echo ${{ inputs.cf_api }}
         cf api ${{ inputs.cf_api }}
         cf auth ${{ secrets.CF_USERNAME }} ${{ secrets.CF_PASSWORD }}
         cf target -o ${{ inputs.cf_org }} -s ${{ inputs.cf_space }}
+      env:
+        CF_USERNAME: ${{ secrets.CF_USERNAME }}
+        CF_PASSWORD: ${{ secrets.CF_PASSWORD }}
 
     - name: Deploy CDS Schema
       run: cds deploy --to hana:${{ inputs.hdi_name }}
