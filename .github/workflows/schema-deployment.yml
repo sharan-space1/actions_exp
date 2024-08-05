@@ -58,11 +58,11 @@ jobs:
 
     - name: Log in to Cloud Foundry
       run: |
-        echo "Secret: ${{ secrets.CF_USERNAME }}"
+        echo "Secret: ${{ secrets._CF_USERNAME }}"
         cf api ${{ inputs.cf_api }}
         cf target -o ${{ inputs.cf_org }} -s ${{ inputs.cf_space }}
       env:
-        CF_USERNAME: ${{ secrets.CF_USERNAME }}
-        CF_PASSWORD: ${{ secrets.CF_PASSWORD }}
+        CF_USERNAME: ${{ secrets._CF_USERNAME }}
+        CF_PASSWORD: ${{ secrets._CF_PASSWORD }}
     - name: Deploy CDS Schema
       run: cds deploy --to hana:${{ inputs.hdi_name }}
