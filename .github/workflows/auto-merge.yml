@@ -29,7 +29,8 @@ jobs:
         if: env.pr_exists == 'false'
         run: |
           PR_OUTPUT=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
-          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '(?<=#)\d+')
+          echo PR_OUTPUT
+          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '#\K\d+')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,7 +46,8 @@ jobs:
       - name: Merge Pull Request
         id: merge-pr
         run: |
-          if gh pr merge ${{ env.pr_number }} --merge --delete-branch; then
+          if gh pr merge ${{ env.pr_number }} --merge 
+          then
             echo "Pull request #${{ env.pr_number }} merged successfully."
           else
             echo "Failed to merge pull request #${{ env.pr_number }}."
