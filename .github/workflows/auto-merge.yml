@@ -14,13 +14,13 @@ jobs:
       - name: Check for existing PR
         id: check-pr
         run: |
-          PR_LIST=$(gh pr list --base main --head dev --json number)
-          PR_NUMBER=$(echo "$PR_LIST" | jq -r '.[0].number')
+          PR_LIST_RESP=$(gh pr list --base main --head dev --json number)
+          PR_NUMBER=$(echo "$PR_LIST_RESP" | jq -r '.[0].number')
+
           if [ -n "$PR_NUMBER" ]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-            echo "PR Exists: "
-            echo $PR_NUMBER
+            echo "PR Exists"
           else
             echo "pr_exists=false" >> $GITHUB_ENV
           fi
@@ -30,20 +30,10 @@ jobs:
       - name: create pull request
         if: env.pr_exists == 'false'
         run: |
-          # Create the PR and capture the output
-          PR_OUTPUT=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
+          CREATE_PR_RESP=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
+          PR_NUMBER=$(echo "$CREATE_PR_RESP" | grep -oP '\d+$')
           
-          # Print the output for debugging
-          echo "PR_OUTPUT:"
-          echo "$PR_OUTPUT"
-          
-          # Extract PR number from the output
-          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '\d+$')
-          
-          # Print the PR number for debugging
           echo "PR_NUMBER: $PR_NUMBER"
-          
-          # Save the PR number as an environment variable
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
