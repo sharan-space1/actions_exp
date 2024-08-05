@@ -23,13 +23,13 @@ on:
         description: 'HDI Instance name'
         required: true
         type: string
-    # secrets:
-    #   cf_username:
-    #     description: 'Cloud Foundry Username'
-    #     required: true
-    #   cf_password:
-    #     description: 'Cloud Foundry PAssword'
-    #     required: true
+    secrets:
+      cf_username:
+        description: 'Cloud Foundry Username'
+        required: true
+      cf_password:
+        description: 'Cloud Foundry PAssword'
+        required: true
 
 jobs:
   deploy:
@@ -58,12 +58,11 @@ jobs:
 
     - name: Log in to Cloud Foundry
       run: |
-        echo "Secret: $CF_USERNAME"
         cf api ${{ inputs.cf_api }}
-        cf auth $CF_USERNAME $CF_PASSWORD
+        cf auth ${{ secrets.cf_username }} ${{ secrets.cf_password }}
         cf target -o ${{ inputs.cf_org }} -s ${{ inputs.cf_space }}
       env:
-        CF_USERNAME: sharan.n@asint.net
-        CF_PASSWORD: 3052@narahS
+        CF_USERNAME: ${{ secrets.cf_username }}
+        CF_PASSWORD: ${{ secrets.cf_password }}
     - name: Deploy CDS Schema
       run: cds deploy --to hana:${{ inputs.hdi_name }}
