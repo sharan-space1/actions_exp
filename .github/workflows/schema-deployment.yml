@@ -38,8 +38,7 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: npm
-
+        
     - name: Install CF CLI
       run: |
         wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
