@@ -59,7 +59,7 @@ jobs:
     - name: Log in to Cloud Foundry
       run: |
         echo $CF_USERNAME
-        echo ${{ inputs.cf_api }}
+        echo ${{ secrets.CF_USERNAME }}
         cf api ${{ inputs.cf_api }}
         cf auth ${{ secrets.CF_USERNAME }} ${{ secrets.CF_PASSWORD }}
         cf target -o ${{ inputs.cf_org }} -s ${{ inputs.cf_space }}
