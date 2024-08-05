@@ -9,7 +9,7 @@ jobs:
   asint-pr-bot:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Check for existing PR
         id: check-for-existing-pr
@@ -79,7 +79,7 @@ jobs:
       
       - name: Schema Deployment
         id: schema-deployment
-        uses: sharan-space1/actions_exp/.github/workflows/schema-deployment.yml
+        uses: ./.github/workflows/schema-deployment.yml
         with:
           cf_api: 'https://api.cf.us10-001.hana.ondemand.com'
           cf_org: '0f109a99trial'
