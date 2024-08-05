@@ -77,9 +77,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Install CDS CLI
+      - name: Install CF & CDS CLI
         id: cds-cli
-        run: npm i -g @sap/cds-dk
+        run: |
+          npm i -g @sap/cds-dk
+          sudo apt-get install cf8-cli
 
       - name: Schema Deployment
         id: schema-deployment
