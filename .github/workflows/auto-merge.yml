@@ -18,7 +18,6 @@ jobs:
           PR_NUMBER=$(echo "$PR_LIST_RESP" | jq -r '.[0].number')
 
           PR_NUMBER=$(echo "$PR_NUMBER" | xargs)
-          echo "Existing PR found: '$PR_NUMBER'"
 
           if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "pr_exists=true" >> $GITHUB_ENV
