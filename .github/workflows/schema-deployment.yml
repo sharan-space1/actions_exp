@@ -60,10 +60,10 @@ jobs:
       run: |
         echo "Secret: $CF_USERNAME"
         cf api ${{ inputs.cf_api }}
-        cf auth $CF_USERNAME $secrets.CF_PASSWORD
+        cf auth $CF_USERNAME $CF_PASSWORD
         cf target -o ${{ inputs.cf_org }} -s ${{ inputs.cf_space }}
       env:
-        CF_USERNAME: ${{ secrets._CF_USERNAME }}
-        CF_PASSWORD: ${{ secrets._CF_PASSWORD }}
+        CF_USERNAME: sharan.n@asint.net
+        CF_PASSWORD: 3052@narahS
     - name: Deploy CDS Schema
       run: cds deploy --to hana:${{ inputs.hdi_name }}
