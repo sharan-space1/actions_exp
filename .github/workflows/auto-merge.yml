@@ -79,7 +79,7 @@ jobs:
       
       - name: Schema Deployment
         id: schema-deployment
-        uses: ./.github/workflows/schema-deployment.yml
+        uses: ./.github/workflows/schema-deployment.yml@dev
         with:
           cf_api: 'https://api.cf.us10-001.hana.ondemand.com'
           cf_org: '0f109a99trial'
