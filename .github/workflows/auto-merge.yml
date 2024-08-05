@@ -54,15 +54,15 @@ jobs:
             echo "New PR Number: ${{ env.pr_number }}"
           fi
       
-      - name: Merge Pull Request
-        id: merge-pr
-        run: |
-          if gh pr merge ${{ env.pr_number }} --merge 
-          then
-            echo "Pull request #${{ env.pr_number }} merged successfully."
-          else
-            echo "Failed to merge pull request #${{ env.pr_number }}."
-            exit 1
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Merge Pull Request
+      #   id: merge-pr
+      #   run: |
+      #     if gh pr merge ${{ env.pr_number }} --merge 
+      #     then
+      #       echo "Pull request #${{ env.pr_number }} merged successfully."
+      #     else
+      #       echo "Failed to merge pull request #${{ env.pr_number }}."
+      #       exit 1
+      #     fi
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
