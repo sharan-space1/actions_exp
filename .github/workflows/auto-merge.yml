@@ -27,7 +27,8 @@ jobs:
       - name: create pull request
         if: env.pr_exists == 'false'
         run: |
-          PR_NUMBER=$(gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action' --json number --jq '.number')
+          PR_OUTPUT=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
+          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '(?<=#)\d+')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
