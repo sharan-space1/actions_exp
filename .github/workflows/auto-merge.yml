@@ -22,11 +22,6 @@ jobs:
           fi
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Enable Pull Request Automerge
-      #   run: gh pr merge --merge --auto "1"
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: create pull request
         if: steps.check-pr.outputs.pr_exists == 'false'
