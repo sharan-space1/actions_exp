@@ -22,7 +22,7 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-            echo "Found Existing PR:" $PR_NUMBER
+            echo "Found Existing PR: $PR_NUMBER"
           else
             echo "pr_exists=false" >> $GITHUB_ENV
           fi
