@@ -14,9 +14,10 @@ jobs:
       - name: Check for existing PR
         id: check-pr
         run: |
-          if gh pr list --base main --head dev --json number | jq -e '.[] | select(.number)' > /dev/null; then
+          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          if [ -n "$PR_NUMBER" ]; then
             echo "pr_exists=true" >> $GITHUB_ENV
-            exit 0
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
           else
             echo "pr_exists=false" >> $GITHUB_ENV
           fi
@@ -26,6 +27,15 @@ jobs:
       - name: create pull request
         if: env.pr_exists == 'false'
         run: |
-          gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action'
+          PR_NUMBER=$(gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action' --json number --jq '.number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Logging
+        run: |
+          if [ "${{ env.pr_exists }}" = "true" ]; then
+            echo "Existing PR Number: ${{ env.pr_number }}"
+          else
+            echo "New PR Number: ${{ env.pr_number }}"
+          fi
