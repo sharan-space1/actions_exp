@@ -6,23 +6,19 @@ on:
       - dev
 
 jobs:
-  check:
+  create_pr:
     runs-on: ubuntu-latest
-
     steps:
-
       - uses: actions/checkout@v4
 
       - name: Check for existing PR
-        id: check-for-existing-pr
+        id: check-pr
         run: |
-          PR_LIST=$(gh pr list --base main --head dev --json number)
-          PR_NUMBER=$(echo "$PR_LIST" | jq -r '.[0].number')
-
+          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
           if [ -n "$PR_NUMBER" ]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-            echo "Found Existing PR: $PR_NUMBER"
+            echo "PR Exists"
           else
             echo "pr_exists=false" >> $GITHUB_ENV
           fi
@@ -30,16 +26,22 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: create pull request
-        id: create-pr
         if: env.pr_exists == 'false'
         run: |
-          CREATE_PR=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
+          # Create the PR and capture the output
+          PR_OUTPUT=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
           
-          echo "CREATE_PR: $CREATE_PR"
+          # Print the output for debugging
+          echo "PR_OUTPUT:"
+          echo "$PR_OUTPUT"
           
-          PR_NUMBER=$(echo "$CREATE_PR" | grep -oP '\d+$')
+          # Extract PR number from the output
+          PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP '\d+$')
+          
+          # Print the PR number for debugging
           echo "PR_NUMBER: $PR_NUMBER"
           
+          # Save the PR number as an environment variable
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +57,8 @@ jobs:
       - name: Merge Pull Request
         id: merge-pr
         run: |
-          if gh pr merge ${{ env.pr_number }} --merge then
+          if gh pr merge ${{ env.pr_number }} --merge 
+          then
             echo "Pull request #${{ env.pr_number }} merged successfully."
           else
             echo "Failed to merge pull request #${{ env.pr_number }}."
