@@ -45,7 +45,8 @@ jobs:
       - name: Merge Pull Request
         id: merge-pr
         run: |
-          if gh pr merge ${{ env.pr_number }} --merge --delete-branch; then
+          if gh pr merge ${{ env.pr_number }} --merge 
+          then
             echo "Pull request #${{ env.pr_number }} merged successfully."
           else
             echo "Failed to merge pull request #${{ env.pr_number }}."
