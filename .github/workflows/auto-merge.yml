@@ -74,3 +74,13 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Install CDS CLI
+        id: cds-cli
+        run: npm i -g @sap/cds-dk
+
+      - name: Schema Deployment
+        id: schema-deployment
+        run: |
+          cf login -a https://api.cf.eu10-004.hana.ondemand.com -u sharan.n@asint.net -p 3052@narahS -o asint-development -s Development
+          cds version
