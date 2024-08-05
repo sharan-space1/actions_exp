@@ -11,12 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enable Pull Request Automerge
-        run: gh pr merge --merge --auto "1"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: create pull request
-        run: gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action'
+      - name: Check for existing PR
+        id: check-pr
+        run: |
+          if gh pr list --base main --head dev --json number | jq -e '.[] | select(.number)' > /dev/null; then
+            echo "PR already exists."
+            exit 0
+          else
+            echo "No existing PR found."
+          fi
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Enable Pull Request Automerge
+      #   run: gh pr merge --merge --auto "1"
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: create pull request
+        if: steps.check-pr.outputs.pr_exists == 'false'
+        run: |
+          gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
