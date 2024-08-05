@@ -17,6 +17,7 @@ jobs:
           PR_LIST_RESP=$(gh pr list --base main --head dev --json number)
           PR_NUMBER=$(echo "$PR_LIST_RESP" | jq -r '.[0].number')
 
+          echo $PR_NUMBER
           if [ -n "$PR_NUMBER" ]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
