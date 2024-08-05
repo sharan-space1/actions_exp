@@ -14,23 +14,34 @@ jobs:
       - name: Check for existing PR
         id: check-pr
         run: |
-          if gh pr list --base main --head dev --json number | jq -e '.[] | select(.number)' > /dev/null; then
-            echo "PR already exists."
-            exit 0
+          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          if [ -n "$PR_NUMBER" ]; then
+            echo "pr_exists=true" >> $GITHUB_ENV
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
           else
-            echo "No existing PR found."
+            echo "pr_exists=false" >> $GITHUB_ENV
           fi
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Enable Pull Request Automerge
-      #   run: gh pr merge --merge --auto "1"
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: create pull request
-        if: steps.check-pr.outputs.pr_exists == 'false'
+        if: env.pr_exists == 'false'
         run: |
-          gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action'
+          PR_NUMBER=$(gh pr create -B main -H dev --title 'Merge dev to main' --body 'Created by Github action' --json number --jq '.number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Logging
+        run: |
+          if [ "${{ env.pr_exists }}" = "true" ]; then
+            echo "Existing PR Number: ${{ env.pr_number }}"
+          else
+            echo "New PR Number: ${{ env.pr_number }}"
+          fi
+      
+      - name: Merge Pull Request
+        run: |
+          gh pr merge ${{ env.pr_number }} --merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
