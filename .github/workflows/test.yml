@@ -1,4 +1,4 @@
-name: Create PR from dev to main
+name: Schema Deployment
 
 on:
   push:
@@ -9,6 +9,9 @@ jobs:
   schema-deployment:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: dev
       - name: Schema Deployment
         id: schema-deployment
         uses: ./.github/workflows/schema-deployment.yml
