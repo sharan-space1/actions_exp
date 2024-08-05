@@ -18,36 +18,58 @@ jobs:
           PR_NUMBER=$(echo "$PR_LIST_RESP" | jq -r '.[0].number')
 
           if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "pr_exists=true" >> $GITHUB_ENV
-            echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+            echo "PR_EXISTS=true" >> $GITHUB_ENV
+            echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
             echo "Existing PR found: '$PR_NUMBER'"
           else
-            echo "pr_exists=false" >> $GITHUB_ENV
-            echo "No existing PR, Creating new PR..."
+            echo "PR_EXISTS=false" >> $GITHUB_ENV
+            echo "No existing PR, Creating new PR"
           fi
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Create new PR
         id: create-pr
-        if: env.pr_exists == 'false'
+        if: env.PR_EXISTS == 'false'
         run: |
+          echo "PR_CREATED=false" >> $GITHUB_ENV
+
           CREATE_PR_RESP=$(gh pr create --base main --head dev --title "Merge dev into main" --body "Auto-generated PR to merge changes from dev to main.")
           PR_NUMBER=$(echo "$CREATE_PR_RESP" | grep -oP '\d+$')
           
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "PR_CREATED=true" >> $GITHUB_ENV
           echo "New PR: '$PR_NUMBER'"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Merge Pull Request
-        id: merge-pr
+      - name: Check for conflicts
+        id: check-for-conflicts
+        if: env.PR_EXISTS == 'true' || env.PR_CREATED == 'true'
         run: |
-          if gh pr merge ${{ env.pr_number }} --merge 
-          then
-            echo "Pull request #${{ env.pr_number }} merged successfully."
+          PR_NUMBER=${{ env.PR_NUMBER }}
+          PR_MERGEABLE_STATUS=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
+          
+          if [[ "$PR_MERGEABLE_STATUS" == "MERGEABLE" ]]; then
+            echo "PR '$PR_NUMBER' is mergeable"
+            echo "PR_MERGEABLE=true" >> $GITHUB_ENV
           else
-            echo "Failed to merge pull request #${{ env.pr_number }}."
+            echo "PR '$PR_NUMBER' has conflicts"
+            echo "PR_MERGEABLE=false" >> $GITHUB_ENV
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge PR
+        id: merge-pr
+        if: env.PR_MERGEABLE == 'true'
+        run: |
+          if gh pr merge ${{ env.PR_NUMBER }} --merge 
+          then
+            echo "Pull request #${{ env.PR_NUMBER }} merged successfully"
+          else
+            echo "Failed to merge pull request #${{ env.PR_NUMBER }}"
             exit 1
           fi
         env:
