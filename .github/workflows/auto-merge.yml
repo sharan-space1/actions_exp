@@ -49,6 +49,7 @@ jobs:
         id: check-for-conflicts
         if: env.PR_EXISTS == 'true' || env.PR_CREATED == 'true'
         run: |
+          sleep 60
           PR_NUMBER=${{ env.PR_NUMBER }}
           PR_MERGEABLE_STATUS=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
           
