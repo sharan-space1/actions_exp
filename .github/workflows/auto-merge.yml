@@ -77,17 +77,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Install CF & CDS CLI
-        id: cds-cli
-        run: |
-          npm i -g @sap/cds-dk
-          wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
-          echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
-          sudo apt-get update
-          sudo apt-get install cf8-cli
-
       - name: Schema Deployment
         id: schema-deployment
-        run: |
-          cf login -a https://api.cf.eu10-004.hana.ondemand.com -u sharan.n@asint.net -p 3052@narahS -o asint-development -s Development
-          cds version
+        uses: ./.github/workflows/schema-deployment.yml
+        with:
+          cf_api: 'https://api.cf.us10-001.hana.ondemand.com'
+          cf_org: '0f109a99trial'
+          cf_space: 'dev'
+          branch: 'dev'
+          hdi_name: 'TESTING_GITHUB_ACTIONS'
