@@ -6,7 +6,7 @@ on:
       - dev
 
 jobs:
-  create_pr:
+  asint-pr-bot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
