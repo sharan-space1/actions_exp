@@ -20,7 +20,7 @@ jobs:
           PR_NUMBER=$(echo "$PR_NUMBER" | xargs)
           echo "Existing PR found: '$PR_NUMBER'"
 
-          if [ -z "$PR_NUMBER" ]; then
+          if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
             echo "Existing PR found: '$PR_NUMBER'"
