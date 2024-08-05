@@ -14,7 +14,8 @@ jobs:
       - name: Check for existing PR
         id: check-pr
         run: |
-          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          PR_LIST=$(gh pr list --base main --head dev --json number)
+          PR_NUMBER=$(echo "$PR_LIST" | jq -r '.[0].number')
           if [ -n "$PR_NUMBER" ]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
