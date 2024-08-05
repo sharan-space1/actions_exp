@@ -7,17 +7,10 @@ on:
 
 jobs:
   schema-deployment:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: dev
-      - name: Schema Deployment
-        id: schema-deployment
-        uses: ./.github/workflows/schema-deployment.yml
-        with:
-          cf_api: "https://api.cf.us10-001.hana.ondemand.com"
-          cf_org: "0f109a99trial"
-          cf_space: "dev"
-          branch: "dev"
-          hdi_name: "TESTING_GITHUB_ACTIONS"
+    uses: ./.github/workflows/schema-deployment.yml
+    with:
+        cf_api: "https://api.cf.us10-001.hana.ondemand.com"
+        cf_org: "0f109a99trial"
+        cf_space: "dev"
+        branch: "dev"
+        hdi_name: "TESTING_GITHUB_ACTIONS"
