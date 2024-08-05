@@ -39,3 +39,9 @@ jobs:
           else
             echo "New PR Number: ${{ env.pr_number }}"
           fi
+      
+      - name: Merge Pull Request
+        run: |
+          gh pr merge ${{ env.pr_number }} --merge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
