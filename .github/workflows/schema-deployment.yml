@@ -4,31 +4,24 @@ on:
   workflow_call:
     inputs:
       cf_api:
-        description: 'Cloud Foundry API endpoint'
         required: true
         type: string
       cf_org:
-        description: 'Cloud Foundry Organization'
         required: true
         type: string
       cf_space:
-        description: 'Cloud Foundry Space'
         required: true
         type: string
       branch:
-        description: 'Branch to checkout before deployment'
         required: true
         type: string
       hdi_name:
-        description: 'HDI Instance name'
         required: true
         type: string
     secrets:
       cf_username:
-        description: 'Cloud Foundry Username'
         required: true
       cf_password:
-        description: 'Cloud Foundry PAssword'
         required: true
 
 jobs:
