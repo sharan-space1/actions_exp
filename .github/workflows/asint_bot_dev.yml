@@ -1,0 +1,28 @@
+name: AsInt Bot [dev]
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  merging-process:
+    uses: ./.github/workflows/merging_process.yml
+    with:
+        base: "main"
+        compare: "dev"
+    secrets:
+        gh_token: ${{ secrets.GITHUB_TOKEN }}
+
+  schema-deployment:
+    needs: merging-process
+    uses: ./.github/workflows/schema_deployment.yml
+    with:
+        cf_api: "https://api.cf.us10-001.hana.ondemand.com"
+        cf_org: "0f109a99trial"
+        cf_space: "dev"
+        branch: "dev"
+        hdi_name: "TESTING_GITHUB_ACTIONS"
+    secrets:
+        cf_username: ${{ secrets.CF_USERNAME }}
+        cf_password: ${{ secrets.CF_PASSWORD }}
