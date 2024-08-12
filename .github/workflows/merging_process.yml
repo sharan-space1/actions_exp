@@ -43,7 +43,7 @@ jobs:
         if: env.pr_exists == 'false'
         run: |
           git fetch --all
-          COMMITS_COUNT=$(git rev-list --count origin/${{ inputs.compare }}..origin/${{ inputs.base }})
+          COMMITS_COUNT=$(git rev-list --count origin/${{ inputs.base }}..origin/${{ inputs.compare }})
           
           echo "COMMITS_COUNT: '$COMMITS_COUNT'"
 
