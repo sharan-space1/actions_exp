@@ -1,9 +1,8 @@
 name: AsInt Bot [dev]
 
 on:
-  push:
-    branches:
-      - dev
+  schedule:
+    - cron: '15 23 * * *'
 
 jobs:
   merging-process:
