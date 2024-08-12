@@ -45,6 +45,8 @@ jobs:
           git fetch --all
           COMMITS_COUNT=$(git rev-list --count origin/${{ inputs.compare }}..origin/${{ inputs.base }})
           
+          echo "COMMITS_COUNT: '$COMMITS_COUNT'"
+
           if [ "$COMMITS_COUNT" -eq 0 ]; then
             echo "No new commits found"
             echo "new_commits=false" >> $GITHUB_ENV
