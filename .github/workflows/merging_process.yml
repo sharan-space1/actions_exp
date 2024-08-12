@@ -28,11 +28,11 @@ jobs:
           PR_NUMBER=$(echo "$PR_LIST_RESP" | jq -r '.[0].number')
 
           if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "::set-output name=pr_exists::true"
-            echo "::set-output name=pr_number::$PR_NUMBER"
+            echo "pr_exists=true" >> $GITHUB_ENV
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
             echo "Existing PR found: '$PR_NUMBER'"
           else
-            echo "::set-output name=pr_exists::false"
+            echo "pr_exists=false" >> $GITHUB_ENV
             echo "No existing PR, Creating new PR"
           fi
         env:
@@ -40,29 +40,29 @@ jobs:
     
       - name: Check for new commits
         id: check-for-new-commits
-        if: steps.check-for-existing-pr.outputs.pr_exists == 'false'
+        if: env.pr_exists == 'false'
         run: |
           git fetch --all
           COMMITS_COUNT=$(git rev-list --count origin/${{ inputs.compare }}..origin/${{ inputs.base }})
           
           if [ "$COMMITS_COUNT" -eq 0 ]; then
             echo "No new commits found"
-            echo "::set-output name=new_commits::false"
+            echo "new_commits=false" >> $GITHUB_ENV
           else
-            echo "::set-output name=new_commits::true"
+            echo "new_commits=true" >> $GITHUB_ENV
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.gh_token }}
 
       - name: Create new PR
         id: create-pr
-        if: steps.check-for-existing-pr.outputs.pr_exists == 'false' && steps.check-for-new-commits.outputs.new_commits == 'true'
+        if: env.pr_exists == 'false' && env.new_commits == 'true'
         run: |
           CREATE_PR_RESP=$(gh pr create --base ${{ inputs.base }} --head ${{ inputs.compare }} --title "Merging ${{ inputs.compare }} into ${{ inputs.base }}" --body "Auto-generated PR to merge changes from ${{ inputs.compare }} to ${{ inputs.base }}.")
           PR_NUMBER=$(echo "$CREATE_PR_RESP" | grep -oP '\d+$')
 
-          echo "::set-output name=pr_number::$PR_NUMBER"
-          echo "::set-output name=pr_created::true"
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
+          echo "pr_created=true" >> $GITHUB_ENV
           echo "New PR: '$PR_NUMBER'"
         env:
           GITHUB_TOKEN: ${{ secrets.gh_token }}
@@ -72,18 +72,18 @@ jobs:
 
       - name: Check for conflicts
         id: check-for-conflicts
-        if: steps.check-for-existing-pr.outputs.pr_exists == 'true' || steps.create-pr.outputs.pr_created == 'true'
+        if: env.pr_exists == 'true' || env.pr_created == 'true'
         run: |
-          PR_NUMBER=${{ steps.create-pr.outputs.pr_number || steps.check-for-existing-pr.outputs.pr_number }}
+          PR_NUMBER=${{ env.pr_number }}
           PR_MERGEABLE_STATUS=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
 
           echo "PR MERGABLE: '$PR_MERGEABLE_STATUS'"
 
           if [[ "$PR_MERGEABLE_STATUS" == "MERGEABLE" ]]; then
-            echo "::set-output name=pr_mergeable::true"
+            echo "pr_mergeable=true" >> $GITHUB_ENV
             echo "PR '$PR_NUMBER' is mergeable"
           else
-            echo "::set-output name=pr_mergeable::false"
+            echo "pr_mergeable=false" >> $GITHUB_ENV
             echo "PR '$PR_NUMBER' has conflicts"
             exit 1
           fi
@@ -92,9 +92,9 @@ jobs:
 
       - name: Merge PR
         id: merge-pr
-        if: steps.check-for-conflicts.outputs.pr_mergeable == 'true'
+        if: env.pr_mergeable == 'true'
         run: |
-          PR_NUMBER=${{ steps.create-pr.outputs.pr_number || steps.check-for-existing-pr.outputs.pr_number }}
+          PR_NUMBER=${{ env.pr_number }}
           if gh pr merge $PR_NUMBER --merge 
           then
             echo "Pull request $PR_NUMBER merged successfully"
