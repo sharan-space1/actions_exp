@@ -42,6 +42,7 @@ jobs:
         id: check-for-new-commits
         if: steps.check-for-existing-pr.outputs.pr_exists == 'false'
         run: |
+          git fetch --all
           COMMITS_COUNT=$(git rev-list --count origin/${{ inputs.compare }}..origin/${{ inputs.base }})
           
           if [ "$COMMITS_COUNT" -eq 0 ]; then
