@@ -2,7 +2,7 @@ name: AsInt Bot [dev]
 
 on:
   schedule:
-    - cron: '15 23 * * *'
+    - cron: '*/5 * * * *'
 
 jobs:
   merging-process:
