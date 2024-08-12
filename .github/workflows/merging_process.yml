@@ -37,10 +37,25 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.gh_token }}
+    
+      - name: Check for new commits
+        id: check-for-new-commits
+        if: steps.check-for-existing-pr.outputs.pr_exists == 'false'
+        run: |
+          COMMITS_COUNT=$(git rev-list --count ${{ inputs.compare }}..${{ inputs.base }})
+          
+          if [ "$COMMITS_COUNT" -eq 0 ]; then
+            echo "No new commits found"
+            echo "::set-output name=new_commits::false"
+          else
+            echo "::set-output name=new_commits::true"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.gh_token }}
 
       - name: Create new PR
         id: create-pr
-        if: steps.check-for-existing-pr.outputs.pr_exists == 'false'
+        if: steps.check-for-existing-pr.outputs.pr_exists == 'false' && steps.check-for-new-commits.outputs.new_commits == 'true'
         run: |
           CREATE_PR_RESP=$(gh pr create --base ${{ inputs.base }} --head ${{ inputs.compare }} --title "Merging ${{ inputs.compare }} into ${{ inputs.base }}" --body "Auto-generated PR to merge changes from ${{ inputs.compare }} to ${{ inputs.base }}.")
           PR_NUMBER=$(echo "$CREATE_PR_RESP" | grep -oP '\d+$')
