@@ -96,7 +96,6 @@ jobs:
         id: merge-pr
         run: |
           if [ "${{ env.pr_mergeable }}" == "true" ]; then
-          then
             PR_NUMBER=${{ env.pr_number }}
             if gh pr merge $PR_NUMBER --merge 
             then
