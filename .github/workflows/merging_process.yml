@@ -94,12 +94,16 @@ jobs:
 
       - name: Merge PR
         id: merge-pr
-        if: env.pr_mergeable == 'true'
         run: |
-          PR_NUMBER=${{ env.pr_number }}
-          if gh pr merge $PR_NUMBER --merge 
-          then
-            echo "Pull request $PR_NUMBER merged successfully"
+          if [ "${{ env.pr_mergeable }}" == "true" ]; then
+            PR_NUMBER=${{ env.pr_number }}
+            if gh pr merge $PR_NUMBER --merge 
+            then
+              echo "Pull request $PR_NUMBER merged successfully"
+            else
+              echo "Failed to merge pull request $PR_NUMBER"
+              exit 1
+            fi
           else
             echo "Failed to merge pull request $PR_NUMBER"
             exit 1
