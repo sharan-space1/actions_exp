@@ -1,4 +1,4 @@
-name: Merging Process
+name: Auto Merge
 on:
   workflow_call:
     inputs:
@@ -89,7 +89,7 @@ jobs:
               exit 0
             elif [[ "$STATUS" == "CONFLICTING" ]]; then
               echo "pr_mergeable=false" >> $GITHUB_ENV
-              gh pr comment $PR_NUMBER --body "⚠️ Auto-merge blocked: merge conflicts detected between \`${{ inputs.compare }}\` and \`${{ inputs.base }}\`. Manual resolution required."
+              gh pr comment $PR_NUMBER --body "Auto-merge blocked: merge conflicts detected between \`${{ inputs.compare }}\` and \`${{ inputs.base }}\`. Manual resolution required."
               echo "PR '$PR_NUMBER' has conflicts — manual intervention needed"
               exit 1
             fi
