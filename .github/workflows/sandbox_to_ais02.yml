@@ -1,0 +1,17 @@
+name: AsInt Bot [Sandbox -> AIS-02]
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 10:30 IST
+    - cron: "0 8 * * *" # 13:30 IST
+    - cron: "0 11 * * *" # 16:30 IST
+  workflow_dispatch:
+
+jobs:
+  merging-process:
+    uses: ./.github/workflows/_auto_merge.yml
+    with:
+      base: "dev-ais-02"
+      compare: "sandbox"
+    secrets:
+      gh_token: ${{ secrets.GITHUB_TOKEN }}
