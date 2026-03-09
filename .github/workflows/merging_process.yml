@@ -63,12 +63,12 @@ jobs:
         id: create-pr
         if: env.pr_exists == 'false' && env.new_commits == 'true'
         run: |
-          gh pr create \
+          CREATE_PR_URL=$(gh pr create \
             --base ${{ inputs.base }} \
             --head ${{ inputs.compare }} \
             --title "Merging ${{ inputs.compare }} into ${{ inputs.base }}" \
-            --body "Auto-generated PR to merge changes from \`${{ inputs.compare }}\` to \`${{ inputs.base }}\`."
-          PR_NUMBER=$(gh pr view --head ${{ inputs.compare }} --base ${{ inputs.base }} --json number --jq '.number')
+            --body "Auto-generated PR to merge changes from \`${{ inputs.compare }}\` to \`${{ inputs.base }}\`.")
+          PR_NUMBER=$(echo "$CREATE_PR_URL" | grep -oP '\d+$')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
           echo "pr_created=true" >> $GITHUB_ENV
           echo "New PR created: '$PR_NUMBER'"
