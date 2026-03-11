@@ -14,12 +14,13 @@ jobs:
   process:
     runs-on: ubuntu-latest
     permissions:
-      contents: write      # needed to merge PR
-      pull-requests: write # needed to create, comment, merge PR
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.compare }}
+          fetch-depth: 0
 
       - name: Initialize env defaults
         run: |
@@ -69,18 +70,26 @@ jobs:
         id: create-pr
         if: env.pr_exists == 'false' && env.new_commits == 'true'
         run: |
+          # Ensure label exists, create if missing
+          gh label create "auto-merge" --color "#0075ca" --description "Automated merge PR" 2>/dev/null || true
+
+          # Create PR without label to avoid race condition
           gh pr create \
             --base ${{ inputs.base }} \
             --head ${{ inputs.compare }} \
             --title "Merging ${{ inputs.compare }} into ${{ inputs.base }}" \
-            --body "Auto-generated PR to merge changes from \`${{ inputs.compare }}\` to \`${{ inputs.base }}\`." \
-            --label "auto-merge"
+            --body "Auto-generated PR to merge changes from \`${{ inputs.compare }}\` to \`${{ inputs.base }}\`."
+
+          # Fetch PR number
           PR_NUMBER=$(gh pr list \
             --base ${{ inputs.base }} \
             --head ${{ inputs.compare }} \
-            --label "auto-merge" \
             --json number \
             --jq '.[0].number')
+
+          # Add label separately after PR exists
+          gh pr edit "$PR_NUMBER" --add-label "auto-merge"
+
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
           echo "pr_created=true" >> $GITHUB_ENV
           echo "New PR created: '$PR_NUMBER'"
@@ -91,9 +100,9 @@ jobs:
         id: check-for-conflicts
         if: env.pr_exists == 'true' || env.pr_created == 'true'
         run: |
-          PR_NUMBER=${{ env.pr_number }}
+          PR_NUMBER="${{ env.pr_number }}"
           for i in {1..10}; do
-            STATUS=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
+            STATUS=$(gh pr view "$PR_NUMBER" --json mergeable --jq '.mergeable')
             echo "Attempt $i: '$STATUS'"
             if [[ "$STATUS" == "MERGEABLE" ]]; then
               echo "pr_mergeable=true" >> $GITHUB_ENV
@@ -101,13 +110,13 @@ jobs:
               exit 0
             elif [[ "$STATUS" == "CONFLICTING" ]]; then
               echo "pr_mergeable=false" >> $GITHUB_ENV
-              gh pr comment $PR_NUMBER --body "Auto-merge blocked: merge conflicts detected between \`${{ inputs.compare }}\` and \`${{ inputs.base }}\`. Manual resolution required."
+              gh pr comment "$PR_NUMBER" --body "Auto-merge blocked: merge conflicts detected between \`${{ inputs.compare }}\` and \`${{ inputs.base }}\`. Manual resolution required."
               echo "PR '$PR_NUMBER' has conflicts — manual intervention needed"
               exit 1
             fi
             sleep 10
           done
-          gh pr comment $PR_NUMBER --body "Auto-merge timed out waiting for mergeability status. Please check manually."
+          gh pr comment "$PR_NUMBER" --body "Auto-merge timed out waiting for mergeability status. Please check manually."
           echo "Timed out waiting for mergeability status"
           exit 1
         env:
@@ -117,11 +126,11 @@ jobs:
         id: merge-pr
         if: env.pr_mergeable == 'true'
         run: |
-          PR_NUMBER=${{ env.pr_number }}
-          if gh pr merge $PR_NUMBER --merge; then
+          PR_NUMBER="${{ env.pr_number }}"
+          if gh pr merge "$PR_NUMBER" --merge; then
             echo "Pull request '$PR_NUMBER' merged successfully"
           else
-            gh pr comment $PR_NUMBER --body "Auto-merge failed during merge step. Please check the workflow logs."
+            gh pr comment "$PR_NUMBER" --body "Auto-merge failed during merge step. Please check the workflow logs."
             echo "Failed to merge pull request '$PR_NUMBER'"
             exit 1
           fi
