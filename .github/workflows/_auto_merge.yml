@@ -17,7 +17,7 @@ jobs:
       contents: write      # needed to merge PR
       pull-requests: write # needed to create, comment, merge PR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.compare }}
 
