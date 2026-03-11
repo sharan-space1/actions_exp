@@ -14,4 +14,4 @@ jobs:
       base: "dev-ais-02"
       compare: "sandbox"
     secrets:
-      gh_token: ${{ secrets.GITHUB_TOKEN }}
+      gh_token: ${{ github.token }}
