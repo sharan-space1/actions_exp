@@ -1,4 +1,5 @@
 name: Auto Merge
+
 on:
   workflow_call:
     inputs:
@@ -8,13 +9,13 @@ on:
       compare:
         required: true
         type: string
-    secrets:
-      gh_token:
-        required: true
 
 jobs:
   process:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write      # needed to merge PR
+      pull-requests: write # needed to create, comment, merge PR
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,22 +27,27 @@ jobs:
           echo "pr_created=false" >> $GITHUB_ENV
           echo "pr_mergeable=false" >> $GITHUB_ENV
           echo "pr_number=" >> $GITHUB_ENV
+          echo "new_commits=false" >> $GITHUB_ENV
 
       - name: Check for existing PR
         id: check-for-existing-pr
         run: |
-          PR_LIST_RESP=$(gh pr list --base ${{ inputs.base }} --head ${{ inputs.compare }} --json number)
+          PR_LIST_RESP=$(gh pr list \
+            --base ${{ inputs.base }} \
+            --head ${{ inputs.compare }} \
+            --label "auto-merge" \
+            --json number)
           PR_NUMBER=$(echo "$PR_LIST_RESP" | jq -r '.[0].number')
           if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "pr_exists=true" >> $GITHUB_ENV
             echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
-            echo "Existing PR found: '$PR_NUMBER'"
+            echo "Existing auto-merge PR found: '$PR_NUMBER'"
           else
             echo "pr_exists=false" >> $GITHUB_ENV
-            echo "No existing PR, will check for new commits"
+            echo "No existing auto-merge PR, will check for new commits"
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Check for new commits
         id: check-for-new-commits
@@ -57,23 +63,29 @@ jobs:
             echo "new_commits=true" >> $GITHUB_ENV
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Create new PR
         id: create-pr
         if: env.pr_exists == 'false' && env.new_commits == 'true'
         run: |
-          CREATE_PR_URL=$(gh pr create \
+          gh pr create \
             --base ${{ inputs.base }} \
             --head ${{ inputs.compare }} \
             --title "Merging ${{ inputs.compare }} into ${{ inputs.base }}" \
-            --body "Auto-generated PR to merge changes from \`${{ inputs.compare }}\` to \`${{ inputs.base }}\`.")
-          PR_NUMBER=$(echo "$CREATE_PR_URL" | grep -oP '\d+$')
+            --body "Auto-generated PR to merge changes from \`${{ inputs.compare }}\` to \`${{ inputs.base }}\`." \
+            --label "auto-merge"
+          PR_NUMBER=$(gh pr list \
+            --base ${{ inputs.base }} \
+            --head ${{ inputs.compare }} \
+            --label "auto-merge" \
+            --json number \
+            --jq '.[0].number')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_ENV
           echo "pr_created=true" >> $GITHUB_ENV
           echo "New PR created: '$PR_NUMBER'"
         env:
-          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Wait and check mergeability
         id: check-for-conflicts
@@ -95,10 +107,11 @@ jobs:
             fi
             sleep 10
           done
+          gh pr comment $PR_NUMBER --body "Auto-merge timed out waiting for mergeability status. Please check manually."
           echo "Timed out waiting for mergeability status"
           exit 1
         env:
-          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Merge PR
         id: merge-pr
@@ -108,8 +121,9 @@ jobs:
           if gh pr merge $PR_NUMBER --merge; then
             echo "Pull request '$PR_NUMBER' merged successfully"
           else
+            gh pr comment $PR_NUMBER --body "Auto-merge failed during merge step. Please check the workflow logs."
             echo "Failed to merge pull request '$PR_NUMBER'"
             exit 1
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          GITHUB_TOKEN: ${{ github.token }}
