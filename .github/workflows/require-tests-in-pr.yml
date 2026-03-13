@@ -1,0 +1,98 @@
+name: require-tests-in-pr
+on:
+  pull_request:
+    branches: ['dev', "sandbox"]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  check-tests-present:
+    name: Check for Tests in PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure PR is not a draft
+        if: ${{ github.event.pull_request.draft == true }}
+        run: |
+          echo "PR is a draft; skipping check."
+          exit 0
+
+      - name: Verify PR contains required test files
+        id: verify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pull_number = context.payload.pull_request.number;
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number
+              }
+            );
+
+            // Consider only added/modified/renamed files
+            const changed = files.filter(f =>
+              ["added", "modified", "renamed"].includes(f.status)
+            );
+
+            core.info(`Changed files (${changed.length}):`);
+            changed.forEach(f => core.info(`  - ${f.filename} [${f.status}]`));
+
+            // Categorise changed files by language
+            // Exclude test files themselves from the "source" buckets
+            const javaTestRegex   = /Test\.java$/;
+            const jsTestRegex     = /[Tt]est\.js$/;            // *test.js OR *Test.js
+
+            const sourceJavaFiles = changed.filter(f =>
+              f.filename.endsWith(".java") && !javaTestRegex.test(f.filename)
+            );
+            const sourceJsFiles   = changed.filter(f =>
+              f.filename.endsWith(".js") && !jsTestRegex.test(f.filename)
+            );
+
+            const testJavaFiles   = changed.filter(f => javaTestRegex.test(f.filename));
+            const testJsFiles     = changed.filter(f => jsTestRegex.test(f.filename));
+
+            core.info(`\nSource Java files : ${sourceJavaFiles.length}`);
+            core.info(`Source JS files   : ${sourceJsFiles.length}`);
+            core.info(`Test Java files   : ${testJavaFiles.length}`);
+            core.info(`Test JS files     : ${testJsFiles.length}`);
+
+            const failures = [];
+
+            // Only require Java tests when Java source files are changed
+            if (sourceJavaFiles.length > 0 && testJavaFiles.length === 0) {
+              core.info("\nJava source changes detected but no *Test.java files found.");
+              sourceJavaFiles.forEach(f => core.info(`   - ${f.filename}`));
+              failures.push(
+                "Java source files were changed but no *Test.java files were found.\n" +
+                "Please include or update at least one test file matching *Test.java."
+              );
+            } else if (testJavaFiles.length > 0) {
+              core.info("\nJava tests satisfied.");
+            }
+
+            // Only require JS tests when JS source files are changed
+            if (sourceJsFiles.length > 0 && testJsFiles.length === 0) {
+              core.info("\nJS source changes detected but no *test.js / *Test.js files found.");
+              sourceJsFiles.forEach(f => core.info(`   - ${f.filename}`));
+              failures.push(
+                "JavaScript source files were changed but no test files were found.\n" +
+                "Please include or update at least one test file matching *test.js or *Test.js."
+              );
+            } else if (testJsFiles.length > 0) {
+              core.info("\nJS tests satisfied.");
+            }
+
+            // No Java or JS source changes at all -> nothing to enforce
+            if (sourceJavaFiles.length === 0 && sourceJsFiles.length === 0) {
+              core.info("\nNo Java or JS source files changed — test check skipped.");
+            }
+
+            if (failures.length > 0) {
+              core.setFailed(failures.join("\n\n"));
+            } else {
+              core.info("\nTest requirements satisfied.");
+            }
