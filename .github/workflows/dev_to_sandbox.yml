@@ -1,0 +1,17 @@
+name: AsInt Bot [Dev -> Sandbox]
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - closed
+
+jobs:
+  merging-process:
+    if: github.event.pull_request.merged == true
+    uses: ./.github/workflows/_auto_merge.yml
+    with:
+      base: "sandbox"
+      compare: "dev"
+    secrets: inherit
