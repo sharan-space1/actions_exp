@@ -82,14 +82,13 @@ jobs:
               echo ""
 
               if [ "$IS_ALLOWED" == "false" ]; then
-                echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
-                echo "    push directly to sandbox-tmp."
-                echo "    Allowed: stillsomehowsane, sharan-space1, sarath8096, tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
-              fi
+                echo "  ✗ '$PUSHER' is NOT permitted to push directly to sandbox-tmp."
+                echo "    Please use a Pull Request with at least 1 reviewer approval."
 
-              if [ "$HAS_TRAILER" == "false" ]; then
-                echo "  ✗ Commit is missing the required trailer."
-                echo "    Add this to the bottom of your commit message:"
+              elif [ "$HAS_TRAILER" == "false" ]; then
+                echo "  ✗ Direct pushes to sandbox-tmp are only permitted for resolving"
+                echo "    merge conflicts. Your commit must include the following trailer"
+                echo "    to confirm this is a conflict resolution commit:"
                 echo ""
                 echo "      Type: conflict-resolve"
                 echo ""
@@ -97,11 +96,11 @@ jobs:
                 echo "      fix: resolved merge conflict in auth module"
                 echo ""
                 echo "      Type: conflict-resolve"
+                echo ""
+                echo "    If this is NOT a conflict resolution, please use a Pull Request"
+                echo "    with at least 1 reviewer approval instead."
               fi
 
-              echo ""
-              echo "  Please use a Pull Request with at least 1 reviewer"
-              echo "  approval for all other changes to sandbox-tmp."
               echo ""
               exit 1
             fi
