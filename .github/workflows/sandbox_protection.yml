@@ -123,8 +123,14 @@ jobs:
           if [ "$PARENTS" -gt 1 ]; then
 
             # Try to find an associated PR for this merge commit
-            PR_NUMBER=$(gh api repos/$REPO/commits/$COMMIT_SHA/pulls \
+            # Headers required for commits/pulls endpoint to work correctly
+            PR_NUMBER=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              repos/$REPO/commits/$COMMIT_SHA/pulls \
               --jq '.[0].number')
+
+            echo "PR Number from API: $PR_NUMBER"
 
             if [ ! -z "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
 
@@ -136,7 +142,11 @@ jobs:
               echo "PR Number: #$PR_NUMBER"
 
               # Fetch PR details
-              PR_DETAILS=$(gh api repos/$REPO/pulls/$PR_NUMBER)
+              PR_DETAILS=$(gh api \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                repos/$REPO/pulls/$PR_NUMBER)
+
               PR_AUTHOR=$(echo "$PR_DETAILS" | jq -r '.user.login')
               PR_TITLE=$(echo "$PR_DETAILS"  | jq -r '.title')
               PR_URL=$(echo "$PR_DETAILS"    | jq -r '.html_url')
@@ -152,7 +162,10 @@ jobs:
               fi
 
               # ── Check for at least 1 approval ──
-              APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+              APPROVALS=$(gh api \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                repos/$REPO/pulls/$PR_NUMBER/reviews \
                 --jq '[.[] | select(.state == "APPROVED")] | length')
 
               echo "Approval count: $APPROVALS"
