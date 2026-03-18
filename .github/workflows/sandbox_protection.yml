@@ -49,7 +49,7 @@ jobs:
           if [ "$APPROVALS" -lt 1 ]; then
             echo ""
             echo "╔══════════════════════════════════════════════════════╗"
-            echo "║              ❌  MERGE VIOLATION                     ║"
+            echo "║                   MERGE VIOLATION                    ║"
             echo "╚══════════════════════════════════════════════════════╝"
             echo ""
             echo "  This PR was merged into 'sandbox' without any reviewer approval."
@@ -112,7 +112,7 @@ jobs:
           if [ "$IS_ALLOWED" == "false" ] || [ "$HAS_TRAILER" == "false" ]; then
             echo ""
             echo "╔══════════════════════════════════════════════════════╗"
-            echo "║              ❌  MERGE VIOLATION                     ║"
+            echo "║                  MERGE VIOLATION                     ║"
             echo "╚══════════════════════════════════════════════════════╝"
             echo ""
             echo "  A direct commit was pushed to 'sandbox' that violates policy."
