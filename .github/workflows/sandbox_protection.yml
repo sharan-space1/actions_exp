@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
@@ -79,7 +79,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           # Allowed committers for direct pushes
-          ALLOWED_USERS=("sharan" "sarath" "bharat" "deepak" "pruthvi")
+          ALLOWED_USERS=("StillSomehowSane", "sharan-space1", "sarath8096", "Tilak1924", "deepak-asint", "bharatramawat28", "pruthvi-hm")
 
           echo "Pusher   : $PUSHER"
           echo "Commit   : $COMMIT_SHA"
@@ -127,7 +127,7 @@ jobs:
             if [ "$IS_ALLOWED" == "false" ]; then
               echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
               echo "    push directly to sandbox."
-              echo "    Allowed: sharan, sarath, bharat, deepak, pruthvi"
+              echo "    Allowed: StillSomehowSane, sharan-space1, sarath8096, Tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
             fi
 
             if [ "$HAS_TRAILER" == "false" ]; then
