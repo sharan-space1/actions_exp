@@ -1,0 +1,152 @@
+name: Sandbox Protection
+
+on:
+  push:
+    branches:
+      - sandbox
+  pull_request:
+    branches:
+      - sandbox
+    types: [closed]
+
+jobs:
+  enforce-merge-policy:
+    runs-on: ubuntu-latest
+    # Only run if it's a direct push OR a merged PR
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: "[PR] Check at least 1 approved reviewer"
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          # ── Skip if PR has the 'auto-merge' label ──
+          if echo "$PR_LABELS" | grep -qi "auto-merge"; then
+            echo "⏭️  Skipping policy check — PR #$PR_NUMBER has the 'auto-merge' label."
+            exit 0
+          fi
+
+          echo "Checking PR #$PR_NUMBER for required approvals..."
+
+          APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+            --jq '[.[] | select(.state == "APPROVED")] | length')
+
+          echo "Approval count: $APPROVALS"
+
+          if [ "$APPROVALS" -lt 1 ]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════╗"
+            echo "║                   MERGE VIOLATION                    ║"
+            echo "╚══════════════════════════════════════════════════════╝"
+            echo ""
+            echo "  This PR was merged into 'sandbox' without any reviewer approval."
+            echo ""
+            echo "  👤 Author  : $PR_AUTHOR"
+            echo "  📝 PR      : #$PR_NUMBER — $PR_TITLE"
+            echo "  🔗 URL     : $PR_URL"
+            echo "  🔢 Commit  : $COMMIT_SHA"
+            echo ""
+            echo "  Policy: At least 1 approved review is required before"
+            echo "  merging a PR into the sandbox branch."
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ PR has $APPROVALS approval(s). Policy satisfied."
+
+      - name: "[Direct Push] Validate committer & trailer"
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUSHER: ${{ github.actor }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          COMMIT_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Allowed committers for direct pushes
+          ALLOWED_USERS=("StillSomehowSane", "sharan-space1", "sarath8096", "Tilak1924", "deepak-asint", "bharatramawat28", "pruthvi-hm")
+
+          echo "Pusher   : $PUSHER"
+          echo "Commit   : $COMMIT_SHA"
+          echo "Message  : $COMMIT_MESSAGE"
+
+          # ── 1. Check if pusher is in the allowed list (case-insensitive) ──
+          PUSHER_LOWER=$(echo "$PUSHER" | tr '[:upper:]' '[:lower:]')
+          IS_ALLOWED=false
+          for user in "${ALLOWED_USERS[@]}"; do
+            if [ "$PUSHER_LOWER" == "$user" ]; then
+              IS_ALLOWED=true
+              break
+            fi
+          done
+
+          # ── 2. Check for commit trailer: Type: conflict-resolve ──
+          # git log parses trailers from the actual commit object (reliable)
+          TRAILER_VALUE=$(git log -1 --format='%(trailers:key=Type,valueonly)' | tr '[:upper:]' '[:lower:]' | xargs)
+          echo "Trailer Type: '$TRAILER_VALUE'"
+
+          HAS_TRAILER=false
+          if [ "$TRAILER_VALUE" == "conflict-resolve" ]; then
+            HAS_TRAILER=true
+          fi
+
+          echo "Is allowed user  : $IS_ALLOWED"
+          echo "Has valid trailer: $HAS_TRAILER"
+
+          # ── 3. If EITHER check fails → violation ──
+          if [ "$IS_ALLOWED" == "false" ] || [ "$HAS_TRAILER" == "false" ]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════╗"
+            echo "║                  MERGE VIOLATION                     ║"
+            echo "╚══════════════════════════════════════════════════════╝"
+            echo ""
+            echo "  A direct commit was pushed to 'sandbox' that violates policy."
+            echo ""
+            echo "  👤 Committed by : $PUSHER"
+            echo "  🔢 Commit SHA   : $COMMIT_SHA"
+            echo "  📅 Timestamp    : $COMMIT_TIMESTAMP"
+            echo "  💬 Message      : $COMMIT_MESSAGE"
+            echo "  🔗 Commit URL   : $COMMIT_URL"
+            echo ""
+
+            if [ "$IS_ALLOWED" == "false" ]; then
+              echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
+              echo "    push directly to sandbox."
+              echo "    Allowed: StillSomehowSane, sharan-space1, sarath8096, Tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
+            fi
+
+            if [ "$HAS_TRAILER" == "false" ]; then
+              echo "  ✗ Commit is missing the required trailer."
+              echo "    Add this to the bottom of your commit message:"
+              echo ""
+              echo "      Type: conflict-resolve"
+              echo ""
+              echo "    Example commit message:"
+              echo "      fix: resolved merge conflict in auth module"
+              echo ""
+              echo "      Type: conflict-resolve"
+            fi
+
+            echo ""
+            echo "  Please use a Pull Request with at least 1 reviewer"
+            echo "  approval for all other changes to sandbox."
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ Direct push by '$PUSHER' with valid trailer. Policy satisfied."
