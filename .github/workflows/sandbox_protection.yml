@@ -4,16 +4,14 @@ on:
   push:
     branches:
       - sandbox
-  pull_request:
-    branches:
-      - sandbox
-    types: [closed]
 
 jobs:
   enforce-merge-policy:
     runs-on: ubuntu-latest
-    # Only run if it's a direct push OR a merged PR
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    permissions:
+      pull-requests: read
+      contents: read
 
     steps:
       - name: Checkout
@@ -21,54 +19,7 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: "[PR] Check at least 1 approved reviewer"
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
-        run: |
-          # ── Skip if PR has the 'auto-merge' label ──
-          if echo "$PR_LABELS" | grep -qi "auto-merge"; then
-            echo "⏭️  Skipping policy check — PR #$PR_NUMBER has the 'auto-merge' label."
-            exit 0
-          fi
-
-          echo "Checking PR #$PR_NUMBER for required approvals..."
-
-          APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-            --jq '[.[] | select(.state == "APPROVED")] | length')
-
-          echo "Approval count: $APPROVALS"
-
-          if [ "$APPROVALS" -lt 1 ]; then
-            echo ""
-            echo "╔══════════════════════════════════════════════════════╗"
-            echo "║                   MERGE VIOLATION                    ║"
-            echo "╚══════════════════════════════════════════════════════╝"
-            echo ""
-            echo "  This PR was merged into 'sandbox' without any reviewer approval."
-            echo ""
-            echo "  👤 Author  : $PR_AUTHOR"
-            echo "  📝 PR      : #$PR_NUMBER — $PR_TITLE"
-            echo "  🔗 URL     : $PR_URL"
-            echo "  🔢 Commit  : $COMMIT_SHA"
-            echo ""
-            echo "  Policy: At least 1 approved review is required before"
-            echo "  merging a PR into the sandbox branch."
-            echo ""
-            exit 1
-          fi
-
-          echo "✅ PR has $APPROVALS approval(s). Policy satisfied."
-
-      - name: "[Direct Push] Validate committer & trailer"
-        if: github.event_name == 'push'
+      - name: "Validate push policy"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUSHER: ${{ github.actor }}
@@ -78,75 +29,155 @@ jobs:
           COMMIT_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
           REPO: ${{ github.repository }}
         run: |
-          # Allowed committers for direct pushes
-          ALLOWED_USERS=("StillSomehowSane", "sharan-space1", "sarath8096", "Tilak1924", "deepak-asint", "bharatramawat28", "pruthvi-hm")
+          # ── Detect if this is a PR merge or a direct push ──
+          # A PR merge commit always has 2 parents
+          # A direct push commit always has 1 parent
+          PARENTS=$(git log -1 --format="%P" | wc -w)
+          echo "Parent commit count: $PARENTS"
 
-          echo "Pusher   : $PUSHER"
-          echo "Commit   : $COMMIT_SHA"
-          echo "Message  : $COMMIT_MESSAGE"
+          if [ "$PARENTS" -gt 1 ]; then
 
-          # ── 1. Check if pusher is in the allowed list (case-insensitive) ──
-          PUSHER_LOWER=$(echo "$PUSHER" | tr '[:upper:]' '[:lower:]')
-          IS_ALLOWED=false
-          for user in "${ALLOWED_USERS[@]}"; do
-            if [ "$PUSHER_LOWER" == "$user" ]; then
-              IS_ALLOWED=true
-              break
+            # ════════════════════════════════════════════════
+            # PR MERGE — Check at least 1 approved reviewer
+            # ════════════════════════════════════════════════
+
+            echo "Detected: PR merge commit"
+
+            # Fetch PR number via GitHub API using commit SHA
+            # GitHub tracks which PR is associated with each merge commit
+            PR_NUMBER=$(gh api repos/$REPO/commits/$COMMIT_SHA/pulls \
+              --jq '.[0].number')
+
+            if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
+              echo "⚠️  Could not determine PR number from commit SHA. Skipping review check."
+              exit 0
             fi
-          done
 
-          # ── 2. Check for commit trailer: Type: conflict-resolve ──
-          # git log parses trailers from the actual commit object (reliable)
-          TRAILER_VALUE=$(git log -1 --format='%(trailers:key=Type,valueonly)' | tr '[:upper:]' '[:lower:]' | xargs)
-          echo "Trailer Type: '$TRAILER_VALUE'"
+            echo "PR Number: #$PR_NUMBER"
 
-          HAS_TRAILER=false
-          if [ "$TRAILER_VALUE" == "conflict-resolve" ]; then
-            HAS_TRAILER=true
+            # Fetch PR details
+            PR_DETAILS=$(gh api repos/$REPO/pulls/$PR_NUMBER)
+            PR_AUTHOR=$(echo "$PR_DETAILS" | jq -r '.user.login')
+            PR_TITLE=$(echo "$PR_DETAILS"  | jq -r '.title')
+            PR_URL=$(echo "$PR_DETAILS"    | jq -r '.html_url')
+            PR_LABELS=$(echo "$PR_DETAILS" | jq -r '[.labels[].name] | @json')
+
+            echo "PR Author : $PR_AUTHOR"
+            echo "PR Title  : $PR_TITLE"
+
+            # ── Skip if PR has the 'auto-merge' label ──
+            if echo "$PR_LABELS" | grep -qi "auto-merge"; then
+              echo "⏭️  Skipping policy check — PR #$PR_NUMBER has the 'auto-merge' label."
+              exit 0
+            fi
+
+            # ── Check for at least 1 approval ──
+            APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+              --jq '[.[] | select(.state == "APPROVED")] | length')
+
+            echo "Approval count: $APPROVALS"
+
+            if [ "$APPROVALS" -lt 1 ]; then
+              echo ""
+              echo "╔══════════════════════════════════════════════════════╗"
+              echo "║                  MERGE VIOLATION                     ║"
+              echo "╚══════════════════════════════════════════════════════╝"
+              echo ""
+              echo "  This PR was merged into 'sandbox' without any reviewer approval."
+              echo ""
+              echo "  👤 Author  : $PR_AUTHOR"
+              echo "  📝 PR      : #$PR_NUMBER — $PR_TITLE"
+              echo "  🔗 URL     : $PR_URL"
+              echo "  🔢 Commit  : $COMMIT_SHA"
+              echo ""
+              echo "  Policy: At least 1 approved review is required before"
+              echo "  merging a PR into the sandbox branch."
+              echo ""
+              exit 1
+            fi
+
+            echo "✅ PR #$PR_NUMBER has $APPROVALS approval(s). Policy satisfied."
+
+          else
+
+            # ════════════════════════════════════════════════
+            # DIRECT PUSH — Check allowed list + trailer
+            # Used by trusted users for local conflict resolution
+            # ════════════════════════════════════════════════
+
+            echo "Detected: Direct push commit"
+
+            # All lowercase — github.actor is compared in lowercase too
+            ALLOWED_USERS=("stillsomehowsane" "sharan-space1" "sarath8096" "tilak1924" "deepak-asint" "bharatramawat28" "pruthvi-hm")
+
+            echo "Pusher   : $PUSHER"
+            echo "Commit   : $COMMIT_SHA"
+            echo "Message  : $COMMIT_MESSAGE"
+
+            # ── 1. Check if pusher is in the allowed list (case-insensitive) ──
+            PUSHER_LOWER=$(echo "$PUSHER" | tr '[:upper:]' '[:lower:]')
+            IS_ALLOWED=false
+            for user in "${ALLOWED_USERS[@]}"; do
+              if [ "$PUSHER_LOWER" == "$user" ]; then
+                IS_ALLOWED=true
+                break
+              fi
+            done
+
+            # ── 2. Check for commit trailer: Type: conflict-resolve ──
+            # Trusted users must include this trailer when pushing directly
+            TRAILER_VALUE=$(git log -1 --format='%(trailers:key=Type,valueonly)' | tr '[:upper:]' '[:lower:]' | xargs)
+            echo "Trailer Type: '$TRAILER_VALUE'"
+
+            HAS_TRAILER=false
+            if [ "$TRAILER_VALUE" == "conflict-resolve" ]; then
+              HAS_TRAILER=true
+            fi
+
+            echo "Is allowed user  : $IS_ALLOWED"
+            echo "Has valid trailer: $HAS_TRAILER"
+
+            # ── 3. If EITHER check fails → violation ──
+            if [ "$IS_ALLOWED" == "false" ] || [ "$HAS_TRAILER" == "false" ]; then
+              echo ""
+              echo "╔══════════════════════════════════════════════════════╗"
+              echo "║                  MERGE VIOLATION                     ║"
+              echo "╚══════════════════════════════════════════════════════╝"
+              echo ""
+              echo "  A direct commit was pushed to 'sandbox' that violates policy."
+              echo ""
+              echo "  👤 Committed by : $PUSHER"
+              echo "  🔢 Commit SHA   : $COMMIT_SHA"
+              echo "  📅 Timestamp    : $COMMIT_TIMESTAMP"
+              echo "  💬 Message      : $COMMIT_MESSAGE"
+              echo "  🔗 Commit URL   : $COMMIT_URL"
+              echo ""
+
+              if [ "$IS_ALLOWED" == "false" ]; then
+                echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
+                echo "    push directly to sandbox."
+                echo "    Allowed: stillsomehowsane, sharan-space1, sarath8096, tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
+              fi
+
+              if [ "$HAS_TRAILER" == "false" ]; then
+                echo "  ✗ Commit is missing the required trailer."
+                echo "    Add this to the bottom of your commit message:"
+                echo ""
+                echo "      Type: conflict-resolve"
+                echo ""
+                echo "    Example commit message:"
+                echo "      fix: resolved merge conflict in auth module"
+                echo ""
+                echo "      Type: conflict-resolve"
+              fi
+
+              echo ""
+              echo "  Please use a Pull Request with at least 1 reviewer"
+              echo "  approval for all other changes to sandbox."
+              echo ""
+              exit 1
+            fi
+
+            echo "✅ Direct push by '$PUSHER' with valid trailer. Policy satisfied."
+
           fi
-
-          echo "Is allowed user  : $IS_ALLOWED"
-          echo "Has valid trailer: $HAS_TRAILER"
-
-          # ── 3. If EITHER check fails → violation ──
-          if [ "$IS_ALLOWED" == "false" ] || [ "$HAS_TRAILER" == "false" ]; then
-            echo ""
-            echo "╔══════════════════════════════════════════════════════╗"
-            echo "║                  MERGE VIOLATION                     ║"
-            echo "╚══════════════════════════════════════════════════════╝"
-            echo ""
-            echo "  A direct commit was pushed to 'sandbox' that violates policy."
-            echo ""
-            echo "  👤 Committed by : $PUSHER"
-            echo "  🔢 Commit SHA   : $COMMIT_SHA"
-            echo "  📅 Timestamp    : $COMMIT_TIMESTAMP"
-            echo "  💬 Message      : $COMMIT_MESSAGE"
-            echo "  🔗 Commit URL   : $COMMIT_URL"
-            echo ""
-
-            if [ "$IS_ALLOWED" == "false" ]; then
-              echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
-              echo "    push directly to sandbox."
-              echo "    Allowed: StillSomehowSane, sharan-space1, sarath8096, Tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
-            fi
-
-            if [ "$HAS_TRAILER" == "false" ]; then
-              echo "  ✗ Commit is missing the required trailer."
-              echo "    Add this to the bottom of your commit message:"
-              echo ""
-              echo "      Type: conflict-resolve"
-              echo ""
-              echo "    Example commit message:"
-              echo "      fix: resolved merge conflict in auth module"
-              echo ""
-              echo "      Type: conflict-resolve"
-            fi
-
-            echo ""
-            echo "  Please use a Pull Request with at least 1 reviewer"
-            echo "  approval for all other changes to sandbox."
-            echo ""
-            exit 1
-          fi
-
-          echo "✅ Direct push by '$PUSHER' with valid trailer. Policy satisfied."
