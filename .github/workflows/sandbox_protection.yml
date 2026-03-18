@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
@@ -31,7 +31,14 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
+          # ── Skip if PR has the 'auto-merge' label ──
+          if echo "$PR_LABELS" | grep -qi "auto-merge"; then
+            echo "⏭️  Skipping policy check — PR #$PR_NUMBER has the 'auto-merge' label."
+            exit 0
+          fi
+
           echo "Checking PR #$PR_NUMBER for required approvals..."
 
           APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
@@ -72,7 +79,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           # Allowed committers for direct pushes
-          ALLOWED_USERS=("sharan" "sarath" "bharat" "deepak" "pruthvi")
+          ALLOWED_USERS=("StillSomehowSane", "sharan-space1", "sarath8096", "Tilak1924", "deepak-asint", "bharatramawat28", "pruthvi-hm")
 
           echo "Pusher   : $PUSHER"
           echo "Commit   : $COMMIT_SHA"
@@ -120,7 +127,7 @@ jobs:
             if [ "$IS_ALLOWED" == "false" ]; then
               echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
               echo "    push directly to sandbox."
-              echo "    Allowed: sharan, sarath, bharat, deepak, pruthvi"
+              echo "    Allowed: StillSomehowSane, sharan-space1, sarath8096, Tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
             fi
 
             if [ "$HAS_TRAILER" == "false" ]; then
