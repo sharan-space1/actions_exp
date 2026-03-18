@@ -3,7 +3,7 @@ name: Sandbox Protection
 on:
   push:
     branches:
-      - sandbox
+      - sandbox-tmp
 
 jobs:
   enforce-merge-policy:
@@ -29,85 +29,14 @@ jobs:
           COMMIT_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
           REPO: ${{ github.repository }}
         run: |
-          # ── Detect if this is a PR merge or a direct push ──
-          # A PR merge commit always has 2 parents
-          # A direct push commit always has 1 parent
-          PARENTS=$(git log -1 --format="%P" | wc -w)
-          echo "Parent commit count: $PARENTS"
 
-          if [ "$PARENTS" -gt 1 ]; then
-
-            # ════════════════════════════════════════════════
-            # PR MERGE — Check at least 1 approved reviewer
-            # ════════════════════════════════════════════════
-
-            echo "Detected: PR merge commit"
-
-            # Fetch PR number via GitHub API using commit SHA
-            # GitHub tracks which PR is associated with each merge commit
-            PR_NUMBER=$(gh api repos/$REPO/commits/$COMMIT_SHA/pulls \
-              --jq '.[0].number')
-
-            if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
-              echo "⚠️  Could not determine PR number from commit SHA. Skipping review check."
-              exit 0
-            fi
-
-            echo "PR Number: #$PR_NUMBER"
-
-            # Fetch PR details
-            PR_DETAILS=$(gh api repos/$REPO/pulls/$PR_NUMBER)
-            PR_AUTHOR=$(echo "$PR_DETAILS" | jq -r '.user.login')
-            PR_TITLE=$(echo "$PR_DETAILS"  | jq -r '.title')
-            PR_URL=$(echo "$PR_DETAILS"    | jq -r '.html_url')
-            PR_LABELS=$(echo "$PR_DETAILS" | jq -r '[.labels[].name] | @json')
-
-            echo "PR Author : $PR_AUTHOR"
-            echo "PR Title  : $PR_TITLE"
-
-            # ── Skip if PR has the 'auto-merge' label ──
-            if echo "$PR_LABELS" | grep -qi "auto-merge"; then
-              echo "⏭️  Skipping policy check — PR #$PR_NUMBER has the 'auto-merge' label."
-              exit 0
-            fi
-
-            # ── Check for at least 1 approval ──
-            APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-              --jq '[.[] | select(.state == "APPROVED")] | length')
-
-            echo "Approval count: $APPROVALS"
-
-            if [ "$APPROVALS" -lt 1 ]; then
-              echo ""
-              echo "╔══════════════════════════════════════════════════════╗"
-              echo "║                  MERGE VIOLATION                     ║"
-              echo "╚══════════════════════════════════════════════════════╝"
-              echo ""
-              echo "  This PR was merged into 'sandbox' without any reviewer approval."
-              echo ""
-              echo "  👤 Author  : $PR_AUTHOR"
-              echo "  📝 PR      : #$PR_NUMBER — $PR_TITLE"
-              echo "  🔗 URL     : $PR_URL"
-              echo "  🔢 Commit  : $COMMIT_SHA"
-              echo ""
-              echo "  Policy: At least 1 approved review is required before"
-              echo "  merging a PR into the sandbox branch."
-              echo ""
-              exit 1
-            fi
-
-            echo "✅ PR #$PR_NUMBER has $APPROVALS approval(s). Policy satisfied."
-
-          else
-
-            # ════════════════════════════════════════════════
-            # DIRECT PUSH — Check allowed list + trailer
-            # Used by trusted users for local conflict resolution
-            # ════════════════════════════════════════════════
-
-            echo "Detected: Direct push commit"
-
-            # All lowercase — github.actor is compared in lowercase too
+          # ════════════════════════════════════════════════════════
+          # FUNCTION: check_direct_push
+          # Used for both direct commits and local git merge pushes
+          # Validates: allowed list + Type: conflict-resolve trailer
+          # ════════════════════════════════════════════════════════
+          check_direct_push() {
+            # All lowercase — PUSHER is also lowercased before compare
             ALLOWED_USERS=("stillsomehowsane" "sharan-space1" "sarath8096" "tilak1924" "deepak-asint" "bharatramawat28" "pruthvi-hm")
 
             echo "Pusher   : $PUSHER"
@@ -125,7 +54,6 @@ jobs:
             done
 
             # ── 2. Check for commit trailer: Type: conflict-resolve ──
-            # Trusted users must include this trailer when pushing directly
             TRAILER_VALUE=$(git log -1 --format='%(trailers:key=Type,valueonly)' | tr '[:upper:]' '[:lower:]' | xargs)
             echo "Trailer Type: '$TRAILER_VALUE'"
 
@@ -144,7 +72,7 @@ jobs:
               echo "║                  MERGE VIOLATION                     ║"
               echo "╚══════════════════════════════════════════════════════╝"
               echo ""
-              echo "  A direct commit was pushed to 'sandbox' that violates policy."
+              echo "  A direct commit was pushed to 'sandbox-tmp' that violates policy."
               echo ""
               echo "  👤 Committed by : $PUSHER"
               echo "  🔢 Commit SHA   : $COMMIT_SHA"
@@ -155,7 +83,7 @@ jobs:
 
               if [ "$IS_ALLOWED" == "false" ]; then
                 echo "  ✗ '$PUSHER' is NOT in the list of users permitted to"
-                echo "    push directly to sandbox."
+                echo "    push directly to sandbox-tmp."
                 echo "    Allowed: stillsomehowsane, sharan-space1, sarath8096, tilak1924, deepak-asint, bharatramawat28, pruthvi-hm"
               fi
 
@@ -173,11 +101,102 @@ jobs:
 
               echo ""
               echo "  Please use a Pull Request with at least 1 reviewer"
-              echo "  approval for all other changes to sandbox."
+              echo "  approval for all other changes to sandbox-tmp."
               echo ""
               exit 1
             fi
 
             echo "✅ Direct push by '$PUSHER' with valid trailer. Policy satisfied."
+          }
+
+          # ════════════════════════════════════════════════════════
+          # MAIN LOGIC
+          #
+          # 2 parents + PR found   →  PR merge        → check approvals
+          # 2 parents + no PR      →  local git merge → check allowed list + trailer
+          # 1 parent               →  direct commit   → check allowed list + trailer
+          # ════════════════════════════════════════════════════════
+
+          PARENTS=$(git log -1 --format="%P" | wc -w)
+          echo "Parent commit count: $PARENTS"
+
+          if [ "$PARENTS" -gt 1 ]; then
+
+            # Try to find an associated PR for this merge commit
+            PR_NUMBER=$(gh api repos/$REPO/commits/$COMMIT_SHA/pulls \
+              --jq '.[0].number')
+
+            if [ ! -z "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+
+              # ════════════════════════════════════════════════
+              # PR MERGE — Check at least 1 approved reviewer
+              # ════════════════════════════════════════════════
+
+              echo "Detected: PR merge commit"
+              echo "PR Number: #$PR_NUMBER"
+
+              # Fetch PR details
+              PR_DETAILS=$(gh api repos/$REPO/pulls/$PR_NUMBER)
+              PR_AUTHOR=$(echo "$PR_DETAILS" | jq -r '.user.login')
+              PR_TITLE=$(echo "$PR_DETAILS"  | jq -r '.title')
+              PR_URL=$(echo "$PR_DETAILS"    | jq -r '.html_url')
+              PR_LABELS=$(echo "$PR_DETAILS" | jq -r '[.labels[].name] | @json')
+
+              echo "PR Author : $PR_AUTHOR"
+              echo "PR Title  : $PR_TITLE"
+
+              # ── Skip if PR has the 'auto-merge' label ──
+              if echo "$PR_LABELS" | grep -qi "auto-merge"; then
+                echo "⏭️  Skipping policy check — PR #$PR_NUMBER has the 'auto-merge' label."
+                exit 0
+              fi
+
+              # ── Check for at least 1 approval ──
+              APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+                --jq '[.[] | select(.state == "APPROVED")] | length')
+
+              echo "Approval count: $APPROVALS"
+
+              if [ "$APPROVALS" -lt 1 ]; then
+                echo ""
+                echo "╔══════════════════════════════════════════════════════╗"
+                echo "║                  MERGE VIOLATION                     ║"
+                echo "╚══════════════════════════════════════════════════════╝"
+                echo ""
+                echo "  This PR was merged into 'sandbox-tmp' without any reviewer approval."
+                echo ""
+                echo "  👤 Author  : $PR_AUTHOR"
+                echo "  📝 PR      : #$PR_NUMBER — $PR_TITLE"
+                echo "  🔗 URL     : $PR_URL"
+                echo "  🔢 Commit  : $COMMIT_SHA"
+                echo ""
+                echo "  Policy: At least 1 approved review is required before"
+                echo "  merging a PR into the sandbox-tmp branch."
+                echo ""
+                exit 1
+              fi
+
+              echo "✅ PR #$PR_NUMBER has $APPROVALS approval(s). Policy satisfied."
+
+            else
+
+              # ════════════════════════════════════════════════
+              # LOCAL GIT MERGE — no PR, treat as direct push
+              # e.g. git merge feature/x → push to sandbox-tmp
+              # ════════════════════════════════════════════════
+
+              echo "Detected: Local git merge (no associated PR)"
+              check_direct_push
+
+            fi
+
+          else
+
+            # ════════════════════════════════════════════════
+            # DIRECT COMMIT — single parent, no merge
+            # ════════════════════════════════════════════════
+
+            echo "Detected: Direct push commit"
+            check_direct_push
 
           fi
