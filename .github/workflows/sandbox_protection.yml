@@ -137,7 +137,7 @@ jobs:
               exit 0
             fi
 
-            APPROVALS=$(gh pr reviews $PR_NUMBER --repo $REPO --json state \
+            APPROVALS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
               --jq '[.[] | select(.state == "APPROVED")] | length')
 
             echo "Approval count: $APPROVALS"
